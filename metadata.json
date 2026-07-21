@@ -1,0 +1,6 @@
+{
+  "name": "Monster Energy E-Commerce",
+  "description": "An energetic, advanced e-commerce platform for Monster Energy drinks featuring heavy parallax animations, smooth scroll transitions, and custom 3D fluid movement.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
