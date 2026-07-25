@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
+    "@react-three/fiber": "^9.6.1",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "clsx": "^2.1.1",
@@ -23,6 +24,7 @@
     "react-dom": "^19.0.1",
     "react-router-dom": "^7.18.1",
     "tailwind-merge": "^3.6.0",
+    "three": "^0.185.1",
     "vite": "^6.2.3"
   },
   "devDependencies": {

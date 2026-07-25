@@ -68,13 +68,16 @@ export const DRINKS: ExtendedDrinkVariety[] = [
     description: 'Mango Loco is a heavenly blend of exotic juices, certain to attract even the most stubborn spirit. Crazy good taste with just enough of that Monster magic to keep the party going for days.',
     price: 3.79,
     image: imgMangoLoco,
-    themeColor: '#38bdf8', // Sky 400
-    glowColor: 'rgba(56, 189, 248, 0.5)',
-    accentColor: 'text-sky-400',
-    borderColor: 'border-sky-500/30',
-    borderColorClass: 'border-sky-500/40',
-    shadowColor: 'shadow-sky-500/20',
-    bgGradient: 'from-zinc-950 via-zinc-900 to-sky-950/40',
+    // Mango: amber, not the sky palette this carried — it was swapped with
+    // Pacific Punch's, so every glow and accent for the two ran the other's
+    // colour. The button artwork letters this one at #e48026.
+    themeColor: '#f59e0b', // Amber 500
+    glowColor: 'rgba(245, 158, 11, 0.5)',
+    accentColor: 'text-amber-400',
+    borderColor: 'border-amber-500/30',
+    borderColorClass: 'border-amber-500/40',
+    shadowColor: 'shadow-amber-500/20',
+    bgGradient: 'from-zinc-950 via-zinc-900 to-amber-950/40',
     caffeine: '152mg',
     taurine: '900mg',
     sugar: '48g',
@@ -114,13 +117,15 @@ export const DRINKS: ExtendedDrinkVariety[] = [
     description: 'Pacific Punch is lighter, less sweet, and more refined than traditional fruit punches. It is styled after classic sailor tattoos with a deep tropical juice profile of cherry, orange, pineapple, and apple.',
     price: 3.79,
     image: imgPacificPunch,
-    themeColor: '#f59e0b', // Amber 500
-    glowColor: 'rgba(245, 158, 11, 0.5)',
-    accentColor: 'text-amber-400',
-    borderColor: 'border-amber-500/30',
-    borderColorClass: 'border-amber-500/40',
-    shadowColor: 'shadow-amber-500/20',
-    bgGradient: 'from-zinc-950 via-zinc-900 to-amber-950/40',
+    // Pacific: sky, the other half of the swap described on Mango Loco. The
+    // button artwork letters this one at #4990d2.
+    themeColor: '#38bdf8', // Sky 400
+    glowColor: 'rgba(56, 189, 248, 0.5)',
+    accentColor: 'text-sky-400',
+    borderColor: 'border-sky-500/30',
+    borderColorClass: 'border-sky-500/40',
+    shadowColor: 'shadow-sky-500/20',
+    bgGradient: 'from-zinc-950 via-zinc-900 to-sky-950/40',
     caffeine: '160mg',
     taurine: '950mg',
     sugar: '46g',

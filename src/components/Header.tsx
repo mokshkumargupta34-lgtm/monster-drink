@@ -14,6 +14,11 @@ interface HeaderProps {
   onOpenCart: () => void;
 }
 
+/** Scroll depth, in px, past which the bar retracts. Clears the hero's top edge. */
+const HIDE_AFTER = 80;
+/** How near the top edge the cursor must come to summon it back, in px. */
+const REVEAL_ZONE = 90;
+
 export default function Header({
   currentSection,
   onNavigate,
@@ -24,6 +29,87 @@ export default function Header({
   onOpenCart
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [hidden, setHidden] = React.useState(false);
+
+  const headerRef = React.useRef<HTMLElement>(null);
+  // Every input to the decision is a ref, so mousemove and scroll can run at
+  // native rate without re-rendering — only a flip of the final boolean does.
+  const hiddenRef = React.useRef(false);
+  const nearTop = React.useRef(false);
+  const scrolledUp = React.useRef(false);
+  const focusInside = React.useRef(false);
+  const menuOpen = React.useRef(false);
+  menuOpen.current = mobileMenuOpen;
+
+  React.useEffect(() => {
+    // Touch devices never fire mousemove, so a cursor-only reveal would strand
+    // the bar off screen for good. There, scrolling up summons it instead.
+    const coarsePointer =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(hover: none)').matches;
+
+    let raf = 0;
+    let lastY = window.scrollY;
+
+    const apply = () => {
+      raf = 0;
+      const summoned =
+        nearTop.current ||
+        focusInside.current ||
+        menuOpen.current ||
+        (coarsePointer && scrolledUp.current);
+      const next = window.scrollY > HIDE_AFTER && !summoned;
+      if (next !== hiddenRef.current) {
+        hiddenRef.current = next;
+        setHidden(next);
+      }
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(apply);
+    };
+
+    const onScroll = () => {
+      const y = window.scrollY;
+      scrolledUp.current = y < lastY;
+      lastY = y;
+      schedule();
+    };
+    const onMove = (e: MouseEvent) => {
+      const near = e.clientY <= REVEAL_ZONE;
+      if (near !== nearTop.current) {
+        nearTop.current = near;
+        schedule();
+      }
+    };
+    // Tabbing into the nav while it is retracted would otherwise move focus to
+    // something off screen.
+    const onFocusIn = () => {
+      focusInside.current = !!headerRef.current?.contains(document.activeElement);
+      schedule();
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('mousemove', onMove, { passive: true });
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusIn);
+    apply();
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('mousemove', onMove);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusIn);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // Opening the mobile menu must pull the bar back down with it.
+  React.useEffect(() => {
+    if (mobileMenuOpen && hiddenRef.current) {
+      hiddenRef.current = false;
+      setHidden(false);
+    }
+  }, [mobileMenuOpen]);
 
   const navItems = [
     { id: 'home' as NavSection, label: 'Home' },
@@ -37,7 +123,17 @@ export default function Header({
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-black/80 backdrop-blur-md border-b border-zinc-900 px-4 md:px-8 py-4 transition-all duration-300">
+    // Asymmetric on purpose: it retracts briskly on an accelerating curve so it
+    // gets out of the way, and returns on a long easeOutExpo that decelerates
+    // into place. Equal timings in both directions read mechanical.
+    <header
+      ref={headerRef}
+      className={`sticky top-0 z-50 w-full bg-black/80 backdrop-blur-md border-b border-zinc-900 px-4 md:px-8 py-4 transition-transform will-change-transform motion-reduce:transition-none ${
+        hidden
+          ? '-translate-y-full duration-[420ms] ease-[cubic-bezier(0.7,0,0.84,0)]'
+          : 'translate-y-0 duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)]'
+      }`}
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Brand Logo */}
         <div 

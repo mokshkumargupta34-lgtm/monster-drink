@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import Header from "./components/Header";
 import Hero from "./components/Hero";
-import PopOutSection from "./components/PopOutSection";
+import PopOutSection, {
+  POPOUT_PIN_VH,
+  POPOUT_REVEAL_ID,
+  POPOUT_SECTION_VH,
+  POPOUT_ZOOM_VH,
+} from "./components/PopOutSection";
 import ThunderstormChamber from "./components/ThunderstormChamber";
 import VarietiesShowcase from "./components/VarietiesShowcase";
 import AboutUs from "./components/AboutUs";
@@ -18,6 +23,7 @@ function App() {
 
   // Lock flag to prevent scroll listener from overriding deliberate nav clicks
   const isProgrammaticScroll = useRef(false);
+  const lastSection = useRef<NavSection>("home");
 
   // Initialize cart state safely from local storage
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -145,16 +151,22 @@ function App() {
       raf = 0;
       if (isProgrammaticScroll.current) return;
 
-      const scrollPos = window.scrollY + 200;
-      const varietiesElem = document.getElementById("varieties-section");
-      const aboutElem = document.getElementById("about-section");
+      // Viewport-relative, not offsetTop: these sections live inside positioned,
+      // negative-margin wrappers, so offsetTop is not a document coordinate.
+      const marker = 200; // a section is "active" once its top passes this line
+      const topOf = (id: string) =>
+        document.getElementById(id)?.getBoundingClientRect().top ?? Infinity;
 
-      if (aboutElem && scrollPos >= aboutElem.offsetTop) {
-        setCurrentSection("about");
-      } else if (varietiesElem && scrollPos >= varietiesElem.offsetTop) {
-        setCurrentSection("varieties");
-      } else {
-        setCurrentSection("home");
+      const next: NavSection =
+        topOf("about-section") <= marker
+          ? "about"
+          : topOf("varieties-section") <= marker
+            ? "varieties"
+            : "home";
+      // Only touch state when it actually changes — this runs every frame.
+      if (next !== lastSection.current) {
+        lastSection.current = next;
+        setCurrentSection(next);
       }
     };
     const onScroll = () => {
@@ -192,13 +204,36 @@ function App() {
           </div>
         ) : (
           <>
-            {/* Page 1 pins in place; the sections below slide up over it */}
+            {/* Page 1 pins in place; page 2 slides up over it */}
             <Hero onNavigateToVarieties={() => handleNavigation("varieties")} />
-            <div className="relative z-10 bg-black">
-              <PopOutSection />
-              <ThunderstormChamber />
-              <VarietiesShowcase onAddToCart={handleAddToCart} />
-              <AboutUs />
+            <PopOutSection />
+
+            {/* Everything from page 3 on sits BEHIND page 2, pulled up by page
+                2's full height so this block's black is page 2's backdrop. The
+                pad drops it to exactly where page 2's zoom begins, and `sticky`
+                then holds it against the viewport for the length of that zoom —
+                so page 3 appears in place, only fading up (driven by
+                PopOutSection), and never slides. The hold is CSS rather than
+                JS so it tracks the scroll exactly instead of a frame behind. */}
+            <div
+              className="relative z-0 bg-black"
+              style={{
+                marginTop: `-${POPOUT_SECTION_VH}vh`,
+                paddingTop: `${POPOUT_PIN_VH - POPOUT_ZOOM_VH}vh`,
+              }}
+            >
+              <div
+                id={POPOUT_REVEAL_ID}
+                className="sticky top-0 bg-black"
+                style={{ opacity: 0, pointerEvents: "none" }}
+              >
+                <ThunderstormChamber />
+                <VarietiesShowcase onAddToCart={handleAddToCart} />
+                <AboutUs />
+              </div>
+              {/* The room `sticky` needs below it to hold for — exactly the zoom.
+                  At full offset the block above lands on it, so it never shows. */}
+              <div aria-hidden="true" style={{ height: `${POPOUT_ZOOM_VH}vh` }} />
             </div>
           </>
         )}

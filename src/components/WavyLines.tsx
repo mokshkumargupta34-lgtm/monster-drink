@@ -144,9 +144,13 @@ export default function WavyLines() {
     // Only animate while the hero is actually visible (on screen AND not
     // scrolled past — the hero is sticky, so it always "intersects").
     let ioVisible = true;
+    let wanted: boolean | null = null;
     const sync = () => {
       const belowHero = window.scrollY > window.innerHeight * 1.1;
-      if (ioVisible && !belowHero) start();
+      const next = ioVisible && !belowHero;
+      if (next === wanted) return; // scroll fires far more often than this flips
+      wanted = next;
+      if (next) start();
       else stop();
     };
     const io = new IntersectionObserver(

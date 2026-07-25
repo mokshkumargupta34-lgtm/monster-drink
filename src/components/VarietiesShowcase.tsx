@@ -110,9 +110,10 @@ export default function VarietiesShowcase({ onAddToCart }: VarietiesShowcaseProp
   const [showToast, setShowToast] = useState(false);
   const [addedItemName, setAddedItemName] = useState('');
   
-  // Scroll parallax factor
-  const [scrollOffset, setScrollOffset] = useState(0);
-  const [scrolledY, setScrolledY] = useState(0);
+  // Scroll parallax factor. Written straight to the DOM rather than held in
+  // state: this used to setState on every scroll frame, re-rendering the whole
+  // showcase 60x a second from anywhere on the page, on or off screen.
+  const parallaxRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startY, setStartY] = useState(0);
   const [dragY, setDragY] = useState(0);
@@ -250,11 +251,10 @@ export default function VarietiesShowcase({ onAddToCart }: VarietiesShowcaseProp
     let raf = 0;
     const compute = () => {
       raf = 0;
-      setScrolledY(window.scrollY);
-      if (!slideContainerRef.current) return;
+      if (!slideContainerRef.current || !parallaxRef.current) return;
       const rect = slideContainerRef.current.getBoundingClientRect();
       const relativeY = rect.top / window.innerHeight; // fraction of screen
-      setScrollOffset(relativeY * 80); // shift amount
+      parallaxRef.current.style.transform = `translateY(${relativeY * 80 * 0.35}px)`;
     };
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(compute);
@@ -591,14 +591,17 @@ export default function VarietiesShowcase({ onAddToCart }: VarietiesShowcaseProp
               FLV_ID // {activeDrink.id}
             </div>
 
-            {/* THE CORE 3D INTERACTIVE FLUID CAN PANEL */}
+            {/* THE CORE 3D INTERACTIVE FLUID CAN PANEL.
+                The scroll parallax lives on the wrapper and is written directly
+                from the scroll handler; the tilt/drag stay React-driven here. */}
+            <div ref={parallaxRef} className="will-change-transform">
             <div
               className="relative w-full max-w-[240px] flex flex-col items-center py-4 select-none"
               style={{
                 transform: `
                   rotateY(${(hoverCoords.x * 32) + spinRotation}deg)
                   rotateX(${hoverCoords.y * -32}deg)
-                  translate3d(${hoverCoords.x * 20}px, ${(hoverCoords.y * 20) + (scrollOffset * 0.35) + dragY}px, 60px)
+                  translate3d(${hoverCoords.x * 20}px, ${(hoverCoords.y * 20) + dragY}px, 60px)
                 `,
                 filter: electricFlash ? 'brightness(1.5) contrast(1.1)' : 'none',
                 transition: isDragging ? 'none' : 'transform 0.4s ease-out'
@@ -661,6 +664,7 @@ export default function VarietiesShowcase({ onAddToCart }: VarietiesShowcaseProp
                 <Zap className="w-2.5 h-2.5 text-emerald-400 animate-spin" />
                 <span>// Grab & slide can down to trigger thunderstorm //</span>
               </div>
+            </div>
             </div>
 
             {/* ADVANCED CAN SPINNERS CONTROL WIDGET */}
