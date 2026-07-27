@@ -1,10 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { DRINKS } from '../data/drinks';
-import { CHAMBER_CAN_TILT, POPOUT_HANDOFF_CAN_ID } from './PopOutSection';
+import { CHAMBER_CAN_TILT } from './PopOutSection';
 import { CAN_EDGE_MASK } from './TravelingCan';
 import ElectricMist from './ui/electric-mist';
-import imgHeroCan from '../assets/images/monster_hero_can.png';
-import imgWordmark from '../assets/images/monster_thunderstorm_wordmark.png';
+import canClassic from '../assets/images/monster_can_classic.webp';
+import canMangoLoco from '../assets/images/monster_can_mango_loco.webp';
+import canBadApple from '../assets/images/monster_can_bad_apple.webp';
+import wmClassic from '../assets/images/monster_wordmark_classic.webp';
+import wmZeroUltra from '../assets/images/monster_wordmark_zero_ultra.webp';
+import wmMangoLoco from '../assets/images/monster_wordmark_mango_loco.webp';
+import wmBadApple from '../assets/images/monster_wordmark_bad_apple.webp';
+import wmPacificPunch from '../assets/images/monster_wordmark_pacific_punch.webp';
 import btnClassic from '../assets/images/monster_btn_classic.png';
 import btnZeroUltra from '../assets/images/monster_btn_zero_ultra.png';
 import btnMangoLoco from '../assets/images/monster_btn_mango_loco.png';
@@ -23,6 +29,40 @@ const FLAVOR_BUTTON_ART: Record<string, string> = {
   'bad-apple': btnBadApple,
   'pacific-punch': btnPacificPunch,
 };
+
+/**
+ * THUNDERSTORM wordmark per flavour. All five are exported at one size from a
+ * common crop, so they register pixel for pixel and the cross-fade cannot shift
+ * the letters. WEBP_WORDMARK_ASPECT must match that export.
+ */
+const WORDMARK_ART: Record<string, string> = {
+  classic: wmClassic,
+  'zero-ultra': wmZeroUltra,
+  'mango-loco': wmMangoLoco,
+  'bad-apple': wmBadApple,
+  'pacific-punch': wmPacificPunch,
+};
+
+/** Export geometry of every wordmark, held on the frame so nothing reflows. */
+const WORDMARK_ASPECT = '2048 / 705';
+
+/**
+ * The can shown in the chamber, per flavour. Every one is composited into the
+ * hero can's original framing — same canvas aspect, same can height, same
+ * centre — so the stack registers and page 2's flight needs no re-tuning.
+ * Flavours with no artwork yet fall back to the classic can.
+ */
+const CAN_ART: Record<string, string> = {
+  classic: canClassic,
+  'mango-loco': canMangoLoco,
+  'bad-apple': canBadApple,
+};
+
+/** The shared can frame's aspect — the hero can's, 3280x4096. */
+const CAN_FRAME_ASPECT = '1063 / 1328';
+
+/** The can's slot. Page 2 no longer flies into it; kept as a stable handle. */
+const CAN_SLOT_ID = 'chamber-capsule';
 
 /**
  * Storm level the chamber runs at, 10–100. Was a user-facing dial; now fixed,
@@ -118,17 +158,39 @@ export default function ThunderstormChamber() {
 
       {/* THUNDERSTORM wordmark. Sits after the mist and scrim so it paints over
           them, and before the z-10 content so the can stands in front of it.
-          Decorative — the section is already titled for assistive tech. */}
+          Decorative — the section is already titled for assistive tech.
+          All five colourways are stacked and cross-faded rather than swapping
+          one src: swapping would pop, and would stall on first paint while the
+          new file decoded. The frame carries the aspect ratio so the absolutely
+          positioned layers never reflow. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-[40%] flex -translate-y-1/2 justify-center select-none"
       >
-        <img
-          src={imgWordmark}
-          alt=""
-          className="h-auto w-[94%] max-w-[1500px] drop-shadow-[0_0_60px_rgba(16,185,129,0.35)]"
-          referrerPolicy="no-referrer"
-        />
+        <div
+          className="relative w-[94%] max-w-[1500px]"
+          style={{ aspectRatio: WORDMARK_ASPECT }}
+        >
+          {DRINKS.slice(0, 5).map((drink) => {
+            const art = WORDMARK_ART[drink.id];
+            if (!art) return null;
+            return (
+              <img
+                key={drink.id}
+                src={art}
+                alt=""
+                className={`absolute inset-0 h-full w-full transition-opacity duration-700 ease-out ${
+                  drink.id === selectedDrinkId ? 'opacity-100' : 'opacity-0'
+                }`}
+                // Each layer carries its own glow rather than one tinted filter
+                // on the frame: opacity composites after filter, so the shadows
+                // cross-fade with their artwork and no filter has to animate.
+                style={{ filter: `drop-shadow(0 0 60px ${drink.themeColor}59)` }}
+                referrerPolicy="no-referrer"
+              />
+            );
+          })}
+        </div>
       </div>
 
       {/* Background glow syncing with flavor and storm activity */}
@@ -149,7 +211,7 @@ export default function ThunderstormChamber() {
               that height, so the section always fits one viewport. No frame,
               readouts or rings: the can alone stands in the storm. */}
           <div className="flex min-h-0 w-full flex-1 items-center justify-center py-4">
-            <div className="group relative flex h-full max-h-full w-auto min-w-[300px] max-w-full aspect-[3/4] flex-col items-center">
+            <div className="relative flex h-full max-h-full w-auto min-w-[300px] max-w-full aspect-[3/4] flex-col items-center">
               {/* Vivid neon glowing core behind flavor can */}
               <div
                 className="pointer-events-none absolute left-1/2 top-1/2 w-[46%] aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px] transition-all duration-700"
@@ -162,18 +224,15 @@ export default function ThunderstormChamber() {
               {/* Stage contents */}
               <div className="relative z-10 flex h-full w-full flex-col items-center">
 
-                {/* Product capsule — page 2's green can flies into this slot and
-                    dissolves into the shot below; PopOutSection drives that. */}
+                {/* The can's slot. Page 2's green can used to fly in here and
+                    morph onto it; it now rises out of frame with the other cans,
+                    so this simply holds the flavour stack. */}
                 <div
-                  id={POPOUT_HANDOFF_CAN_ID}
+                  id={CAN_SLOT_ID}
                   // No card behind the can — the box stays only to size and
                   // place it, and to give the flight from page 2 a target.
                   className="relative w-full h-full"
                 >
-                  {/* The bare can, not a product photo — this is the very image
-                      that flies in from page 2, so the hand-off lands on itself
-                      instead of dissolving into a different picture. Same PNG,
-                      same edge mask: at the swap the two are identical pixels. */}
                   {/* Floats the can on past the hand-off, at the same cadence and
                       offsets it flew in with — but no lean, since the flight
                       unwinds CAN_LEAN to land it upright on this image. Both
@@ -187,20 +246,45 @@ export default function ThunderstormChamber() {
                     className="absolute inset-0"
                     style={{ animation: 'chamberFloat 2.4s ease-in-out infinite' }}
                   >
-                    {/* h-% w-auto, so the element box IS the rendered can — the
-                        PNG has wide transparent margins, and object-contain
-                        would letterbox it down to a fraction of the frame. Over
-                        100% on purpose: the can is the whole point of this page,
-                        so it outgrows its stage and bleeds past the edges. */}
-                    <img
-                      src={imgHeroCan}
-                      alt="Monster Energy can in the induction chamber"
-                      className="absolute left-1/2 top-1/2 h-[124%] w-auto max-w-none -translate-x-1/2 -translate-y-1/2 transition-transform duration-500 group-hover:scale-105 pointer-events-none"
-                      referrerPolicy="no-referrer"
-                      // Standalone `rotate`, so it composes with the centring
-                      // translate and the hover scale instead of replacing them.
-                      style={{ ...CAN_EDGE_MASK, rotate: `${CHAMBER_CAN_TILT}deg` }}
-                    />
+                    {/* h-[124%] plus the hero can's aspect gives the frame every
+                        colourway was composited into, so the stack registers and
+                        the edge mask lands where it was tuned to. Over 100% on
+                        purpose: the can is the point of this page, so it outgrows
+                        its stage and bleeds past the edges. */}
+                    <div
+                      data-handoff-can
+                      // No hover scale here. This element's box IS what the
+                      // flight measures each frame to size itself, so growing it
+                      // on hover both desynced the cross-fade (a 5% taller can
+                      // ghosting behind the arriving one) and fed a wrong target
+                      // size into the flight. The chamber is not interactive, so
+                      // there was nothing for the affordance to promise anyway.
+                      className="absolute left-1/2 top-1/2 h-[124%] -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                      style={{
+                        aspectRatio: CAN_FRAME_ASPECT,
+                        // Standalone `rotate`, so it composes with the centring
+                        // translate and the hover scale instead of replacing them.
+                        rotate: `${CHAMBER_CAN_TILT}deg`,
+                        ...CAN_EDGE_MASK,
+                      }}
+                    >
+                      {DRINKS.slice(0, 5).map((drink) => {
+                        const art = CAN_ART[drink.id] ?? CAN_ART.classic;
+                        const isActive = drink.id === selectedDrinkId;
+                        return (
+                          <img
+                            key={drink.id}
+                            src={art}
+                            alt={isActive ? `${drink.name} can` : ''}
+                            aria-hidden={!isActive}
+                            className={`absolute inset-0 h-full w-full transition-opacity duration-700 ease-out ${
+                              isActive ? 'opacity-100' : 'opacity-0'
+                            }`}
+                            referrerPolicy="no-referrer"
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>

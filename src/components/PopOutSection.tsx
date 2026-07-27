@@ -2,18 +2,19 @@ import React, { useEffect, useRef } from 'react';
 import imgJungle from '../assets/images/monster_jungle_bg.png';
 import imgMango from '../assets/images/monster_mango_loco_pop.png';
 import imgBadApple from '../assets/images/monster_bad_apple_pop.png';
-import TravelingCan, { DOCK_ROTATE, FLOAT_ROTATE } from './TravelingCan';
+import TravelingCan from './TravelingCan';
 
 /**
  * Page 2 — "UNLEASH THE LIQUID LIGHTING" jungle collage (from Figma).
  * The green classic can woven between UNLEASH / THE is the landing slot
- * (#popout-can-target) that the hero's travelling can docks into.
+ * (#popout-can-target) that the hero's travelling can docks into, before rising
+ * out of frame with the others in phase 2.
  *
  * The section is POPOUT_SECTION_VH tall with an h-screen sticky "stage" inside,
  * so page 2 pins for POPOUT_PIN_VH of scrolling. That pinned scroll scrubs the
- * whole hand-off into page 3:
+ * whole exit into page 3:
  *   phase 1 — UNLEASH + LIQUID fly off left, THE + LIGHTNING fly off right
- *   phase 2 — once the type is gone, the red can rises and the blue can drops
+ *   phase 2 — once the type is gone, the cans clear: green and red rise, blue drops
  *   phase 3 — the camera pushes through the jungle gap: everything left scales
  *             past the viewport edges while page 3 fades up in place behind it
  * Everything that moves in phases 1–2 sits BEHIND the jungle frame, so it is
@@ -38,47 +39,11 @@ export const POPOUT_ZOOM_VH = 100;
 export const POPOUT_REVEAL_ID = 'popout-reveal';
 
 /**
- * The chamber's can slot on page 3. Page 2's green can flies into it during the
- * zoom and morphs onto the can already sitting there — the same image, so the
- * two register exactly.
- */
-export const POPOUT_HANDOFF_CAN_ID = 'chamber-capsule';
-
-/**
  * The resting lean of page 3's can, in degrees. Part of the hand-off contract:
  * the flight has to end on exactly this angle, so the chamber reads it from
  * here rather than styling a tilt of its own.
  */
 export const CHAMBER_CAN_TILT = 8;
-
-/**
- * A rotated element's client rect is its axis-aligned bounding box — taller and
- * wider than the element itself — so the tilted can's rect cannot be used as its
- * size directly. Recovers the true w/h from the pair of bbox dimensions.
- *   bw = w·c + h·s
- *   bh = w·s + h·c     (c = |cos θ|, s = |sin θ|)
- */
-const unrotateBox = (bw: number, bh: number, deg: number) => {
-  const rad = (deg * Math.PI) / 180;
-  const c = Math.abs(Math.cos(rad));
-  const s = Math.abs(Math.sin(rad));
-  const det = c * c - s * s;
-  // θ at 45° makes the system singular; nothing here goes near it, but a tilt
-  // edited to that would otherwise divide by ~0.
-  if (Math.abs(det) < 1e-6) return { w: bw, h: bh };
-  return { w: (bw * c - bh * s) / det, h: (bh * c - bw * s) / det };
-};
-
-// The flight lands well before the swap, so the two cans sit exactly on top of
-// each other for a beat first — cross-fading mid-flight shows them misaligned.
-const HANDOFF_FLIGHT_SPAN = 0.8;
-const HANDOFF_SWAP_START = 0.86;
-/**
- * The docked can's net lean. Unwound over the flight so it arrives upright on
- * the capsule's can, which is the same image — that is what makes the hand-off
- * a morph rather than a dissolve.
- */
-const CAN_LEAN = DOCK_ROTATE + FLOAT_ROTATE;
 
 const ZOOM_START = (POPOUT_PIN_VH - POPOUT_ZOOM_VH) / POPOUT_PIN_VH;
 const ZOOM_MAX_SCALE = 3.4; // well past the ~2.2 that clears the foliage frame
@@ -106,13 +71,6 @@ const TYPE_SPAN = ZOOM_START * 0.44;
 const CANS_START = ZOOM_START * 0.54;
 const CANS_SPAN = ZOOM_START * 0.42;
 
-/**
- * Frames the docked can gets to become measurable before the flight gives up
- * for this pass. Generous because the can PNG is multi-megabyte and the whole
- * hand-off is gated on that one measurement — at 60fps this is a few seconds.
- */
-const MEASURE_MAX_TRIES = 240;
-
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const smoothstep = (v: number) => v * v * (3 - 2 * v);
 
@@ -129,12 +87,10 @@ export default function PopOutSection() {
   const theRef = useRef<HTMLDivElement>(null);
   const canFlightRef = useRef<HTMLDivElement>(null);
   const revealRef = useRef<HTMLElement | null>(null);
-  const capsuleRef = useRef<HTMLElement | null>(null);
-  const capsuleImgRef = useRef<HTMLImageElement | null>(null);
 
-  // The docked can's resting box, relative to the stage. Measured lazily: the
-  // can is still travelling (and `fixed`) when everything else is measured.
-  const canRest = useRef<{ x: number; y: number; h: number } | null>(null);
+  // How far the green can rises to leave the frame. Measured lazily — see
+  // measureGreenExit — because it is still travelling when measure() runs.
+  const greenExit = useRef(0);
 
   // Exit distance (px) each element needs to fully clear the frame, measured from
   // its resting box so the motion fills its phase window at every viewport size.
@@ -142,7 +98,6 @@ export default function PopOutSection() {
 
   useEffect(() => {
     let raf = 0;
-    let canMeasureTries = 0;
 
     // Read each resting box with the scroll transforms momentarily cleared, and
     // express it against the stage rather than the viewport so the numbers hold
@@ -185,9 +140,10 @@ export default function PopOutSection() {
       };
     };
 
-    // The can is `fixed` and mid-flight when measure() runs, so its docked box
-    // can only be read once the zoom starts — by then it has long since docked.
-    const measureCan = () => {
+    // How far the green can must rise to clear the frame. Not measurable in
+    // measure(): the can is still `fixed` and travelling in from page 1 then,
+    // and only settles into its docked box later.
+    const measureGreenExit = () => {
       const stage = stageRef.current;
       const wrap = canFlightRef.current;
       const img = wrap?.querySelector('img');
@@ -197,40 +153,26 @@ export default function PopOutSection() {
       // via React state, so on the first frame after a jump-scroll — or a reload
       // partway down — it is still `fixed` at left-0/top-0 while already wearing
       // its docked transform, which puts it at roughly (0,0). Caching that would
-      // send the flight off from the corner of the screen. Retry next frame.
+      // give an exit distance far too short. Retry next frame.
       const canEl = wrap.firstElementChild as HTMLElement | null;
       if (!canEl || getComputedStyle(canEl).position !== 'absolute') return;
 
-      // The can PNG is several megabytes. Until it decodes the img is h-auto off
-      // an unknown intrinsic size, so it measures 0 tall — caching that would
-      // divide by zero below and kill the flight. Retry instead.
+      // The can PNG is several megabytes; until it decodes the img is h-auto off
+      // an unknown intrinsic size and measures 0 tall. Retry instead.
       if (!img.complete || img.naturalHeight === 0) return;
 
       const savedTransform = wrap.style.transform;
-      const savedOrigin = wrap.style.transformOrigin;
-      const box = stage.getBoundingClientRect();
-
-      // Pass 1: centre. A rotation about the centre leaves the centre put, so
-      // this is valid even though the box itself is the leaning can's bbox.
       wrap.style.transform = 'none';
       const spun = img.getBoundingClientRect();
-      const x = spun.left + spun.width / 2 - box.left;
-      const y = spun.top + spun.height / 2 - box.top;
-
-      // Pass 2: true height, with the lean cancelled — the leaning bbox is
-      // several percent taller than the can actually is.
-      wrap.style.transformOrigin = `${x}px ${y}px`;
-      wrap.style.transform = `rotate(${-CAN_LEAN}deg)`;
-      const upright = img.getBoundingClientRect();
-
+      const box = stage.getBoundingClientRect();
       wrap.style.transform = savedTransform;
-      wrap.style.transformOrigin = savedOrigin;
-      if (upright.height > 0) canRest.current = { x, y, h: upright.height };
+
+      const vh = window.innerHeight || 800;
+      if (spun.height > 0) greenExit.current = spun.bottom - box.top + vh * 0.08;
     };
 
     const update = () => {
       raf = 0;
-      let retryMeasure = false;
       const section = sectionRef.current;
       if (!section) return;
 
@@ -246,32 +188,20 @@ export default function PopOutSection() {
       const z = clamp01((p - ZOOM_START) / (1 - ZOOM_START));
       const zooming = z > 0;
 
-      const reveal = (revealRef.current ||= document.getElementById(POPOUT_REVEAL_ID));
-      const capsule = (capsuleRef.current ||= document.getElementById(
-        POPOUT_HANDOFF_CAN_ID,
-      ));
-      const capsuleImg = (capsuleImgRef.current ||=
-        capsule?.querySelector('img') ?? null);
+      // Cached, but re-queried if the node has been detached. Page 3 is
+      // remounted when its responsive wrapper flips mode, and again on every HMR
+      // update in dev; a detached node keeps answering queries with zeros rather
+      // than throwing, so a stale handle fails silently.
+      const live = (
+        ref: React.MutableRefObject<HTMLElement | null>,
+        find: () => HTMLElement | null,
+      ) => {
+        if (!ref.current || !ref.current.isConnected) ref.current = find();
+        return ref.current;
+      };
 
-      // Re-arm every time page 2 leaves the zoom, so a measurement that timed
-      // out (slow image decode, say) gets another go on the next pass instead
-      // of leaving the hand-off dead for the rest of the session.
-      if (!zooming) canMeasureTries = 0;
+      const reveal = live(revealRef, () => document.getElementById(POPOUT_REVEAL_ID));
 
-      if (zooming && !canRest.current && canMeasureTries < MEASURE_MAX_TRIES) {
-        measureCan();
-        // The dock switch lands a render later, and nothing else will wake us
-        // if the scroll has already stopped — so keep asking for a frame until
-        // it takes. Capped so a can that never docks cannot spin forever.
-        if (!canRest.current) {
-          canMeasureTries++;
-          retryMeasure = true;
-        }
-      }
-
-      const stageBox = zooming ? stageRef.current?.getBoundingClientRect() : undefined;
-      // the rendered can inside the capsule, which is what the flight targets
-      const capBox = zooming ? capsuleImg?.getBoundingClientRect() : undefined;
 
       // ---------------------------------------------------------------------
       // WRITES
@@ -289,12 +219,26 @@ export default function PopOutSection() {
       if (theRef.current)
         theRef.current.style.transform = `translateX(${t * d.the}px)`;
 
-      // Phase 2 — only once the type is gone, the outer cans clear vertically.
+      // Phase 2 — only once the type is gone, the cans clear vertically. The
+      // green can rises with the red one rather than flying into page 3: page 3
+      // now owns a can per flavour, so there is no longer a single image for it
+      // to morph onto, and the collage reads better emptying completely.
       const c = smoothstep(clamp01((p - CANS_START) / CANS_SPAN));
       if (redCanRef.current)
         redCanRef.current.style.transform = `translateY(${-c * d.red}px)`;
       if (blueCanRef.current)
         blueCanRef.current.style.transform = `translateY(${c * d.blue}px)`;
+
+      // The green can is measured lazily: it is still `fixed` mid-flight from
+      // page 1 when measure() runs, and only settles into its docked box later.
+      const canWrap = canFlightRef.current;
+      if (canWrap) {
+        if (!greenExit.current) measureGreenExit();
+        if (greenExit.current) {
+          canWrap.style.transform = `translateY(${-c * greenExit.current}px)`;
+          canWrap.style.willChange = c > 0 && c < 1 ? 'transform' : '';
+        }
+      }
 
       // Phase 3 — the camera pushes through the gap in the foliage. Slightly
       // eased-in so the jungle holds, then rushes past the edges. THE and the
@@ -318,66 +262,6 @@ export default function PopOutSection() {
         reveal.style.willChange = zooming && z < 1 ? 'opacity' : '';
       }
 
-      // How far through the flight, and how far through the swap that follows it.
-      const m = smoothstep(clamp01(z / HANDOFF_FLIGHT_SPAN));
-      const swap = smoothstep(
-        clamp01((z - HANDOFF_SWAP_START) / (1 - HANDOFF_SWAP_START)),
-      );
-
-      // Hand the green can across into the chamber's capsule the same way. The
-      // two images differ (bare can vs the capsule's product shot), so this is a
-      // dissolve on arrival rather than a true morph — the capsule holds its
-      // shot back until the can has landed in it.
-      const canWrap = canFlightRef.current;
-      const canRestBox = canRest.current;
-      // The div carrying travelFloat, inside the can's outer positioning div.
-      const floatEl = canWrap?.firstElementChild?.firstElementChild as
-        | HTMLElement
-        | null;
-      if (canWrap) {
-        if (zooming && capBox && canRestBox && canRestBox.h > 0) {
-          const restX = canRestBox.x + (stageBox?.left ?? 0);
-          const restY = canRestBox.y + (stageBox?.top ?? 0);
-          // Target the capsule's can element directly. It is sized h-/w-auto, so
-          // its box is exactly the rendered can — no contain-fit maths needed,
-          // and nothing here has to stay in sync with the chamber's classes.
-          // The can rests tilted, so its rect is an inflated bbox: undo that
-          // first or the flight scales up to the bbox and lands oversized.
-          const capH = unrotateBox(capBox.width, capBox.height, CHAMBER_CAN_TILT).h;
-          const fit = capH / canRestBox.h;
-          const dx = (capBox.left + capBox.width / 2 - restX) * m;
-          const dy = (capBox.top + capBox.height / 2 - restY) * m;
-          canWrap.style.transformOrigin = `${canRestBox.x}px ${canRestBox.y}px`;
-          // The can carries CAN_LEAN of its own, so the flight rotates by the
-          // difference — landing on the chamber can's tilt rather than upright.
-          canWrap.style.transform = `translate(${dx}px, ${dy}px) rotate(${(CHAMBER_CAN_TILT - CAN_LEAN) * m}deg) scale(${1 + (fit - 1) * m})`;
-          canWrap.style.willChange = 'transform, opacity';
-          canWrap.style.opacity = (1 - swap).toFixed(4);
-          if (capsuleImg) capsuleImg.style.opacity = swap.toFixed(4);
-
-          // Unwind this can's OWN float over the flight, exactly as the lean is
-          // unwound. The target it flies to is the chamber's can, which floats
-          // too — so without this it lands at target + its own float offset and
-          // visibly jumps at the cross-fade. Cancelled via the standalone
-          // `translate` property, which composes with (rather than clobbers)
-          // the `transform` the animation owns, in that same local space.
-          // `none` is not a matrix DOMMatrix will parse, and throwing here would
-          // take the whole scroll handler — and every phase above — down with it.
-          const floatT = floatEl && getComputedStyle(floatEl).transform;
-          if (floatEl && floatT && floatT !== 'none') {
-            const f = new DOMMatrixReadOnly(floatT);
-            floatEl.style.translate = `${-f.e * m}px ${-f.f * m}px`;
-          }
-        } else if (!zooming && canWrap.style.transform) {
-          canWrap.style.transform = '';
-          canWrap.style.transformOrigin = '';
-          canWrap.style.opacity = '';
-          canWrap.style.willChange = '';
-          if (capsuleImg) capsuleImg.style.opacity = '';
-          if (floatEl) floatEl.style.translate = '';
-        }
-      }
-
       const camera = cameraRef.current;
       if (camera) {
         if (zooming) {
@@ -395,7 +279,6 @@ export default function PopOutSection() {
         }
       }
 
-      if (retryMeasure && !raf) raf = requestAnimationFrame(update);
     };
 
     const onScroll = () => {
@@ -403,8 +286,7 @@ export default function PopOutSection() {
     };
     const onResize = () => {
       measure();
-      canRest.current = null; // re-read the docked box at the new size
-      canMeasureTries = 0;
+      greenExit.current = 0; // re-measure the docked box at the new size
       onScroll();
     };
 
@@ -539,9 +421,9 @@ export default function PopOutSection() {
         </div>
 
         {/* Travelling green can — also outside the camera, for the same reason:
-            during the zoom it flies into page 3's chamber capsule. The wrapper
-            matches the stage box, so the can's docked left/top still resolve
-            against the same rectangle they did inside the camera. */}
+            phase 2 lifts it out of frame from here. The wrapper matches the
+            stage box, so the can's docked left/top still resolve against the
+            same rectangle they did inside the camera. */}
         <div ref={canFlightRef} className="absolute inset-0 z-20">
           <TravelingCan />
         </div>

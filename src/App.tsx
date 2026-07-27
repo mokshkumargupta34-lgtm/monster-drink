@@ -10,6 +10,7 @@ import PopOutSection, {
 import ThunderstormChamber from "./components/ThunderstormChamber";
 import VarietiesShowcase from "./components/VarietiesShowcase";
 import AboutUs from "./components/AboutUs";
+import LightningSplit from "./components/ui/lightning-split";
 import LoginModal from "./components/LoginModal";
 import CartDrawer from "./components/CartDrawer";
 import { CartItem, NavSection } from "./types";
@@ -227,8 +228,13 @@ function App() {
                 className="sticky top-0 bg-black"
                 style={{ opacity: 0, pointerEvents: "none" }}
               >
-                <ThunderstormChamber />
-                <VarietiesShowcase onAddToCart={handleAddToCart} />
+                {/* Page 3 is pinned while page 4 rises over it behind an
+                    electric seam. Net document height is unchanged, so page 2's
+                    hand-off and everything below here keep their positions. */}
+                <LightningSplit
+                  above={<ThunderstormChamber />}
+                  below={<VarietiesShowcase onAddToCart={handleAddToCart} />}
+                />
                 <AboutUs />
               </div>
               {/* The room `sticky` needs below it to hold for — exactly the zoom.
