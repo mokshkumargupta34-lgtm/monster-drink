@@ -456,14 +456,24 @@ export default function LightningSplit({
       {/* `below`, pulled up by exactly the pin so its top edge crosses the
           viewport while `above` is held — that edge is the seam. Painted over
           `above`, and the net margin keeps the document height unchanged. */}
-      <div ref={belowRef} className="relative z-20" style={{ marginTop: `-${pinVh}vh` }}>
+      {/* pointer-events-none on the wrapper, restored on the clipped layer
+          below. This box overlaps `above` by a whole viewport at a higher
+          z-index, and an element hit-tests across its entire box whether or not
+          it paints anything — so left alone it silently swallows every click
+          meant for `above`. Re-enabling on the clipped child means `below` is
+          clickable exactly where it is visible, and nowhere else. */}
+      <div
+        ref={belowRef}
+        className="pointer-events-none relative z-20"
+        style={{ marginTop: `-${pinVh}vh` }}
+      >
         {/* The backdrop is the component's, not the incoming section's. Sections
             here are semi-transparent by design (page 4 is bg-black/70) because
             they normally sit on the page's own black. Stacked over `above` that
             translucency lets it bleed through below the cut, so the wiping layer
             has to bring its own opaque ground. */}
         <div ref={holdRef}>
-          <div ref={clipRef} className={belowBackdropClassName}>
+          <div ref={clipRef} className={`pointer-events-auto ${belowBackdropClassName}`}>
             {below}
           </div>
 
