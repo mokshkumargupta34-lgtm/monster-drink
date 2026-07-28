@@ -184,6 +184,16 @@ function App() {
                   }
                 />
               </div>
+              {/* Load-bearing, despite looking like filler. `sticky` can only
+                  push an element DOWN inside its container, so the reveal's
+                  whole hold comes from the room left beneath it — this. Remove it
+                  and the range collapses to zero: the reveal stops holding, so
+                  page 2's zoom and page 3's lightning wipe run on top of each
+                  other and page 3 is covered before it is ever seen. Note the
+                  wipe's own pin consumes exactly this much scroll, so keeping it
+                  costs no trailing scroll — the document still ends as the
+                  expansion finishes. */}
+              <div aria-hidden="true" style={{ height: `${POPOUT_ZOOM_VH}vh` }} />
             </div>
         </>
       </main>
