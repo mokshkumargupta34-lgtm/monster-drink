@@ -16,10 +16,22 @@ import type { ReactNode } from 'react';
  *   - the arc is not spring-animated. A spring made the arc lag the clip edge,
  *     and for a wipe the two have to be the same line to the pixel.
  *
- * Structure: `above` is pinned for `pinVh` of scroll while `below` — pulled up
- * over it by the same amount — rises behind a wavy, glowing seam. Net document
- * height is unchanged, so nothing downstream of this shifts.
+ * Structure: `above` and `below` are BOTH pinned with CSS `sticky` for `pinVh`
+ * of scroll, stacked, while a diagonal bolt sweeps across and clips `below` in
+ * from the right. Both halves holding still is what makes it read as a split
+ * rather than a slide. Net document height is unchanged, so nothing downstream
+ * of this shifts.
+ *
+ * Both sections must be exactly one viewport tall — they are pinned inside
+ * one-viewport stages, so anything longer would have its tail cut off.
  */
+
+/**
+ * Default pinned length of the wipe, in viewport heights. Exported because
+ * `below` is pulled up to the START of the pin, so anything navigating to it has
+ * to scroll this much further to clear the sweep and actually show it.
+ */
+export const LIGHTNING_SPLIT_PIN_VH = 100;
 
 export const LIGHTNING_SPLIT_CONFIG = {
   /** polyline resolution; also the number of clip-path vertices */
@@ -235,7 +247,7 @@ function ShaderCanvas({ paused, className = '' }: { paused: boolean; className?:
 interface LightningSplitProps {
   /** Held still and wiped away. Must be exactly one viewport tall. */
   above: ReactNode;
-  /** Rises over `above` behind the seam. */
+  /** Revealed over `above` by the bolt. Must be exactly one viewport tall. */
   below: ReactNode;
   /** Viewport-heights of pinned scroll the wipe occupies. */
   pinVh?: number;
@@ -256,12 +268,11 @@ interface LightningSplitProps {
 export default function LightningSplit({
   above,
   below,
-  pinVh = 100,
+  pinVh = LIGHTNING_SPLIT_PIN_VH,
   minWidth = 1024,
   belowBackdropClassName = 'bg-black',
 }: LightningSplitProps) {
-  const belowRef = useRef<HTMLDivElement>(null);
-  const holdRef = useRef<HTMLDivElement>(null);
+  const runwayRef = useRef<HTMLDivElement>(null);
   const clipRef = useRef<HTMLDivElement>(null);
   const seamRef = useRef<HTMLDivElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
@@ -302,18 +313,27 @@ export default function LightningSplit({
     let time = 0;
     let last = performance.now();
 
-    /** Is the seam close enough to the viewport to be worth drawing? */
+    /**
+     * Sweep progress, 0..1, read off the runway — which is never transformed, so
+     * this cannot feed back into itself the way measuring the held layer did.
+     */
+    const readProgress = () => {
+      const runway = runwayRef.current;
+      if (!runway) return null;
+      const span = (pinVh / 100) * (window.innerHeight || 800);
+      if (span <= 0) return null;
+      return -runway.getBoundingClientRect().top / span;
+    };
+
+    /** Is the sweep close enough to running to be worth drawing? */
     const inZone = () => {
-      const el = belowRef.current;
-      if (!el) return false;
-      const top = el.getBoundingClientRect().top;
-      return top > -SLACK && top < window.innerHeight + SLACK;
+      const p = readProgress();
+      return p !== null && p > -SLACK / 100 && p < 1 + SLACK / 100;
     };
 
     const clear = () => {
       if (clipRef.current) clipRef.current.style.clipPath = '';
       if (glowRef.current) glowRef.current.style.clipPath = '';
-      if (holdRef.current) holdRef.current.style.transform = '';
       if (seamRef.current) seamRef.current.style.opacity = '0';
       if (runningRef.current) {
         runningRef.current = false;
@@ -326,15 +346,13 @@ export default function LightningSplit({
       last = now;
       time += dt;
 
-      const el = belowRef.current;
-      if (!el) {
+      const raw = readProgress();
+      if (raw === null) {
         raf = 0;
         return;
       }
-      const top = el.getBoundingClientRect().top;
-      const vh = window.innerHeight || 800;
 
-      if (top <= -SLACK || top >= vh + SLACK) {
+      if (raw <= -SLACK / 100 || raw >= 1 + SLACK / 100) {
         clear();
         raf = 0;
         return; // a scroll event will restart us
@@ -345,22 +363,7 @@ export default function LightningSplit({
         setRunning(true); // un-pauses the shader
       }
 
-      // Progress: 0 when `below` is a full viewport down, 1 when its top has
-      // reached the viewport top. Drives the bolt's sweep across the screen.
-      const progress = 1 - Math.min(1, Math.max(0, top / vh));
-
-      // Hold `below` still for the sweep. It is pulled up by the pin, so left
-      // alone it would drift upward while `above` sits pinned. Cancelling that
-      // drift with a transform — which costs no layout — keeps BOTH halves
-      // stationary, which is what makes this read as a split rather than a
-      // slide. At progress 1 the offset is 0, so releasing it is seamless.
-      //
-      // The transform goes on an inner element, never on the one we measure: a
-      // transform moves its own client rect, so writing it to `el` would feed
-      // straight back into next frame's `top` and oscillate.
-      if (holdRef.current) {
-        holdRef.current.style.transform = `translateY(${(-top).toFixed(2)}px)`;
-      }
+      const progress = Math.min(1, Math.max(0, raw));
 
       // The bolt sweeps right to left. Its head leads and its foot trails by
       // leanPct, giving the near-vertical diagonal of the reference.
@@ -447,7 +450,7 @@ export default function LightningSplit({
   return (
     <>
       {/* Runway: one viewport for `above` to be read, plus the pinned wipe. */}
-      <div className="relative z-10" style={{ height: `${100 + pinVh}vh` }}>
+      <div ref={runwayRef} className="relative z-10" style={{ height: `${100 + pinVh}vh` }}>
         <div className="sticky top-0 h-screen overflow-hidden">
           <div className="absolute inset-0">{above}</div>
         </div>
@@ -463,17 +466,33 @@ export default function LightningSplit({
           meant for `above`. Re-enabling on the clipped child means `below` is
           clickable exactly where it is visible, and nowhere else. */}
       <div
-        ref={belowRef}
         className="pointer-events-none relative z-20"
-        style={{ marginTop: `-${pinVh}vh` }}
+        style={{
+          // Pulled up so `below` is already in position when the pin starts, and
+          // given an explicit height so its sticky child has exactly the pin's
+          // worth of range — the same shape as `above`'s runway above. An
+          // equivalent-looking padding-bottom does NOT work here: the sticky
+          // range came out as zero and `below` scrolled straight through.
+          // Together these leave the document height unchanged.
+          marginTop: `-${100 + pinVh}vh`,
+          height: `${100 + pinVh}vh`,
+        }}
       >
-        {/* The backdrop is the component's, not the incoming section's. Sections
-            here are semi-transparent by design (page 4 is bg-black/70) because
-            they normally sit on the page's own black. Stacked over `above` that
-            translucency lets it bleed through below the cut, so the wiping layer
-            has to bring its own opaque ground. */}
-        <div ref={holdRef}>
-          <div ref={clipRef} className={`pointer-events-auto ${belowBackdropClassName}`}>
+        {/* Held by CSS `sticky`, never by a JS transform. A transform written
+            from a scroll handler lands a frame behind the compositor's scroll
+            offset, which reads as the whole page bobbing up and down for the
+            length of the wipe; sticky is handled on the compositor and holds
+            exactly. This is why `above` is pinned the same way. */}
+        <div className="sticky top-0 h-screen">
+          {/* The backdrop is the component's, not the incoming section's.
+              Sections here are semi-transparent by design because they normally
+              sit on the page's own black. Stacked over `above` that translucency
+              lets it bleed through below the cut, so the wiping layer has to
+              bring its own opaque ground. */}
+          <div
+            ref={clipRef}
+            className={`pointer-events-auto h-full ${belowBackdropClassName}`}
+          >
             {below}
           </div>
 

@@ -8,7 +8,9 @@ import PopOutSection, {
   POPOUT_ZOOM_VH,
 } from "./components/PopOutSection";
 import ThunderstormChamber from "./components/ThunderstormChamber";
-import LightningSplit from "./components/ui/lightning-split";
+import LightningSplit, {
+  LIGHTNING_SPLIT_PIN_VH,
+} from "./components/ui/lightning-split";
 import CartDrawer from "./components/CartDrawer";
 import { CartItem, NavSection } from "./types";
 
@@ -67,9 +69,17 @@ function App() {
     if (sectionId === "home") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (sectionId === "varieties") {
-      document
-        .getElementById("varieties-section")
-        ?.scrollIntoView({ behavior: "smooth" });
+      // Not scrollIntoView: page 4's box begins at the START of the lightning
+      // wipe, so landing on its top edge would show page 3 with the wipe barely
+      // begun. Scroll past the pin so page 4 is actually the thing on screen.
+      const el = document.getElementById("varieties-section");
+      if (el) {
+        const past = (LIGHTNING_SPLIT_PIN_VH / 100) * window.innerHeight;
+        window.scrollBy({
+          top: el.getBoundingClientRect().top + past,
+          behavior: "smooth",
+        });
+      }
     }
 
     // Release scroll lock after smooth animation completes
