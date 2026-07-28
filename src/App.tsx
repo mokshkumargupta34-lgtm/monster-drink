@@ -8,11 +8,9 @@ import PopOutSection, {
   POPOUT_ZOOM_VH,
 } from "./components/PopOutSection";
 import ThunderstormChamber from "./components/ThunderstormChamber";
-import VarietiesShowcase from "./components/VarietiesShowcase";
 import LightningSplit from "./components/ui/lightning-split";
 import CartDrawer from "./components/CartDrawer";
 import { CartItem, NavSection } from "./types";
-import { ExtendedDrinkVariety } from "./data/drinks";
 
 function App() {
   const [currentSection, setCurrentSection] = useState<NavSection>("home");
@@ -40,26 +38,6 @@ function App() {
       console.error("Failed to sync cart to storage:", e);
     }
   }, [cartItems]);
-
-  const handleAddToCart = (
-    variety: ExtendedDrinkVariety,
-    packSize: number,
-    quantity: number,
-  ) => {
-    setCartItems((prevItems) => {
-      const itemId = `${variety.id}-${packSize}`;
-      const existing = prevItems.find((item) => item.id === itemId);
-
-      if (existing) {
-        return prevItems.map((item) =>
-          item.id === itemId
-            ? { ...item, quantity: item.quantity + quantity }
-            : item,
-        );
-      }
-      return [...prevItems, { id: itemId, variety, quantity, packSize }];
-    });
-  };
 
   const handleUpdateCartQuantity = (id: string, newQty: number) => {
     if (newQty <= 0) {
@@ -176,7 +154,15 @@ function App() {
                     hand-off and everything below here keep their positions. */}
                 <LightningSplit
                   above={<ThunderstormChamber />}
-                  below={<VarietiesShowcase onAddToCart={handleAddToCart} />}
+                  below={
+                    // Page 4, intentionally empty. It keeps its id so the nav
+                    // and the scroll-spy still resolve, and a full viewport of
+                    // height so the wipe has something to reveal.
+                    <section
+                      id="varieties-section"
+                      className="relative min-h-screen w-full bg-black"
+                    />
+                  }
                 />
               </div>
               {/* The room `sticky` needs below it to hold for — exactly the zoom.
