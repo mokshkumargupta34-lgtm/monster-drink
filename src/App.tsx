@@ -11,6 +11,9 @@ import ThunderstormChamber from "./components/ThunderstormChamber";
 import LightningSplit, {
   LIGHTNING_SPLIT_PIN_VH,
 } from "./components/ui/lightning-split";
+import ScrollExpandMedia from "./components/ui/scroll-expansion-hero";
+import imgBeastBg from "./assets/images/monster_dense_lightning_bg_1784486497734.jpg";
+import videoPromo from "./assets/video/monster_promo.mp4";
 import CartDrawer from "./components/CartDrawer";
 import { CartItem, NavSection } from "./types";
 
@@ -165,19 +168,22 @@ function App() {
                 <LightningSplit
                   above={<ThunderstormChamber />}
                   below={
-                    // Page 4, intentionally empty. It keeps its id so the nav
-                    // and the scroll-spy still resolve, and a full viewport of
-                    // height so the wipe has something to reveal.
-                    <section
-                      id="varieties-section"
-                      className="relative min-h-screen w-full bg-black"
-                    />
+                    // Page 4. Its growth is driven by the split's hold phase
+                    // through the `--expand` variable, so it owns no scroll
+                    // logic of its own. Keeps the id the nav and scroll-spy use.
+                    <div id="varieties-section">
+                      <ScrollExpandMedia
+                        mediaType="video"
+                        mediaSrc={videoPromo}
+                        bgImageSrc={imgBeastBg}
+                        title="UNLEASH THE BEAST"
+                        date="Monster Energy"
+                        scrollToExpand="Keep scrolling to expand"
+                      />
+                    </div>
                   }
                 />
               </div>
-              {/* The room `sticky` needs below it to hold for — exactly the zoom.
-                  At full offset the block above lands on it, so it never shows. */}
-              <div aria-hidden="true" style={{ height: `${POPOUT_ZOOM_VH}vh` }} />
             </div>
         </>
       </main>
@@ -191,24 +197,6 @@ function App() {
         onClearCart={handleClearCart}
       />
 
-      <footer className="relative z-20 border-t border-zinc-900 bg-black py-8 px-6 text-center text-zinc-500 font-mono text-[10px] uppercase tracking-widest">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <span>© 2026 MONSTER ENERGY CO. ALL SYSTEM BUZZ ACTIVE.</span>
-          <div className="flex gap-4">
-            <span className="hover:text-emerald-400 cursor-pointer">
-              Privacy Policy
-            </span>
-            <span>//</span>
-            <span className="hover:text-emerald-400 cursor-pointer">
-              Security Portal
-            </span>
-            <span>//</span>
-            <span className="hover:text-emerald-400 cursor-pointer">
-              Terms of Unleash
-            </span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

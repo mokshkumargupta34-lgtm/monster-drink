@@ -33,6 +33,15 @@ import type { ReactNode } from 'react';
  */
 export const LIGHTNING_SPLIT_PIN_VH = 100;
 
+/**
+ * Extra pinned scroll AFTER the bolt has swept off screen, during which both
+ * halves stay put and `below` has the stage to itself. Published as the CSS
+ * variable `--expand` (0..1) on the wrapper around `below`, so a section there
+ * can drive its own scroll choreography in pure CSS — no second RAF, no
+ * per-frame React render.
+ */
+export const LIGHTNING_SPLIT_HOLD_VH = 140;
+
 export const LIGHTNING_SPLIT_CONFIG = {
   /** polyline resolution; also the number of clip-path vertices */
   segments: 48,
@@ -251,6 +260,8 @@ interface LightningSplitProps {
   below: ReactNode;
   /** Viewport-heights of pinned scroll the wipe occupies. */
   pinVh?: number;
+  /** Viewport-heights of pinned scroll after the wipe; drives `--expand`. */
+  holdVh?: number;
   /**
    * Below this width the wipe is skipped and both sections render in normal
    * flow. `above` is only guaranteed to be exactly one viewport tall from `lg`
@@ -269,6 +280,7 @@ export default function LightningSplit({
   above,
   below,
   pinVh = LIGHTNING_SPLIT_PIN_VH,
+  holdVh = LIGHTNING_SPLIT_HOLD_VH,
   minWidth = 1024,
   belowBackdropClassName = 'bg-black',
 }: LightningSplitProps) {
@@ -320,19 +332,28 @@ export default function LightningSplit({
     const readProgress = () => {
       const runway = runwayRef.current;
       if (!runway) return null;
-      const span = (pinVh / 100) * (window.innerHeight || 800);
-      if (span <= 0) return null;
-      return -runway.getBoundingClientRect().top / span;
+      const vh = window.innerHeight || 800;
+      const sweepPx = (pinVh / 100) * vh;
+      const holdPx = (holdVh / 100) * vh;
+      if (sweepPx <= 0) return null;
+      const scrolled = -runway.getBoundingClientRect().top;
+      return {
+        sweep: scrolled / sweepPx,
+        expand: holdPx > 0 ? (scrolled - sweepPx) / holdPx : 0,
+      };
     };
 
     /** Is the sweep close enough to running to be worth drawing? */
     const inZone = () => {
       const p = readProgress();
-      return p !== null && p > -SLACK / 100 && p < 1 + SLACK / 100;
+      return p !== null && p.sweep > -SLACK / 100 && p.expand < 1 + SLACK / 100;
     };
 
     const clear = () => {
-      if (clipRef.current) clipRef.current.style.clipPath = '';
+      if (clipRef.current) {
+        clipRef.current.style.clipPath = '';
+        clipRef.current.style.removeProperty('--expand');
+      }
       if (glowRef.current) glowRef.current.style.clipPath = '';
       if (seamRef.current) seamRef.current.style.opacity = '0';
       if (runningRef.current) {
@@ -352,7 +373,7 @@ export default function LightningSplit({
         return;
       }
 
-      if (raw <= -SLACK / 100 || raw >= 1 + SLACK / 100) {
+      if (raw.sweep <= -SLACK / 100 || raw.expand >= 1 + SLACK / 100) {
         clear();
         raf = 0;
         return; // a scroll event will restart us
@@ -363,7 +384,15 @@ export default function LightningSplit({
         setRunning(true); // un-pauses the shader
       }
 
-      const progress = Math.min(1, Math.max(0, raw));
+      const progress = Math.min(1, Math.max(0, raw.sweep));
+      // Handed to `below` as a CSS variable rather than a prop: styles there can
+      // read it through calc() every frame without React re-rendering.
+      if (clipRef.current) {
+        clipRef.current.style.setProperty(
+          '--expand',
+          Math.min(1, Math.max(0, raw.expand)).toFixed(4),
+        );
+      }
 
       // The bolt sweeps right to left. Its head leads and its foot trails by
       // leanPct, giving the near-vertical diagonal of the reference.
@@ -434,7 +463,7 @@ export default function LightningSplit({
       if (raf) cancelAnimationFrame(raf);
       clear();
     };
-  }, [enabled]);
+  }, [enabled, pinVh, holdVh]);
 
   if (!enabled) {
     return (
@@ -450,7 +479,11 @@ export default function LightningSplit({
   return (
     <>
       {/* Runway: one viewport for `above` to be read, plus the pinned wipe. */}
-      <div ref={runwayRef} className="relative z-10" style={{ height: `${100 + pinVh}vh` }}>
+      <div
+        ref={runwayRef}
+        className="relative z-10"
+        style={{ height: `${100 + pinVh + holdVh}vh` }}
+      >
         <div className="sticky top-0 h-screen overflow-hidden">
           <div className="absolute inset-0">{above}</div>
         </div>
@@ -474,8 +507,8 @@ export default function LightningSplit({
           // equivalent-looking padding-bottom does NOT work here: the sticky
           // range came out as zero and `below` scrolled straight through.
           // Together these leave the document height unchanged.
-          marginTop: `-${100 + pinVh}vh`,
-          height: `${100 + pinVh}vh`,
+          marginTop: `-${100 + pinVh + holdVh}vh`,
+          height: `${100 + pinVh + holdVh}vh`,
         }}
       >
         {/* Held by CSS `sticky`, never by a JS transform. A transform written
