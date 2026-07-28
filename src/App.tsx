@@ -9,9 +9,7 @@ import PopOutSection, {
 } from "./components/PopOutSection";
 import ThunderstormChamber from "./components/ThunderstormChamber";
 import VarietiesShowcase from "./components/VarietiesShowcase";
-import AboutUs from "./components/AboutUs";
 import LightningSplit from "./components/ui/lightning-split";
-import LoginModal from "./components/LoginModal";
 import CartDrawer from "./components/CartDrawer";
 import { CartItem, NavSection } from "./types";
 import { ExtendedDrinkVariety } from "./data/drinks";
@@ -19,8 +17,6 @@ import { ExtendedDrinkVariety } from "./data/drinks";
 function App() {
   const [currentSection, setCurrentSection] = useState<NavSection>("home");
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
 
   // Lock flag to prevent scroll listener from overriding deliberate nav clicks
   const isProgrammaticScroll = useRef(false);
@@ -44,41 +40,6 @@ function App() {
       console.error("Failed to sync cart to storage:", e);
     }
   }, [cartItems]);
-
-  // Sync user credentials on mount
-  useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem("monster_user_name");
-      if (storedUser) {
-        setIsLoggedIn(true);
-        setUsername(storedUser);
-      }
-    } catch (e) {
-      console.error("Failed to read user session:", e);
-    }
-  }, []);
-
-  const handleLoginSuccess = (name: string) => {
-    setIsLoggedIn(true);
-    setUsername(name);
-    try {
-      localStorage.setItem("monster_user_name", name);
-    } catch (e) {
-      console.error("Failed to save user session:", e);
-    }
-    setCurrentSection("home");
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUsername(null);
-    try {
-      localStorage.removeItem("monster_user_name");
-    } catch (e) {
-      console.error("Failed to clear user session:", e);
-    }
-    setCurrentSection("home");
-  };
 
   const handleAddToCart = (
     variety: ExtendedDrinkVariety,
@@ -123,8 +84,6 @@ function App() {
   const handleNavigation = (sectionId: NavSection) => {
     setCurrentSection(sectionId);
 
-    if (sectionId === "login") return;
-
     isProgrammaticScroll.current = true;
 
     if (sectionId === "home") {
@@ -132,10 +91,6 @@ function App() {
     } else if (sectionId === "varieties") {
       document
         .getElementById("varieties-section")
-        ?.scrollIntoView({ behavior: "smooth" });
-    } else if (sectionId === "about") {
-      document
-        .getElementById("about-section")
         ?.scrollIntoView({ behavior: "smooth" });
     }
 
@@ -159,11 +114,7 @@ function App() {
         document.getElementById(id)?.getBoundingClientRect().top ?? Infinity;
 
       const next: NavSection =
-        topOf("about-section") <= marker
-          ? "about"
-          : topOf("varieties-section") <= marker
-            ? "varieties"
-            : "home";
+        topOf("varieties-section") <= marker ? "varieties" : "home";
       // Only touch state when it actually changes — this runs every frame.
       if (next !== lastSection.current) {
         lastSection.current = next;
@@ -192,19 +143,11 @@ function App() {
         currentSection={currentSection}
         onNavigate={handleNavigation}
         cartCount={totalCartCount}
-        isLoggedIn={isLoggedIn}
-        username={username}
-        onLogout={handleLogout}
         onOpenCart={() => setIsCartOpen(true)}
       />
 
       <main className="relative z-10 w-full">
-        {currentSection === "login" ? (
-          <div className="animate-fade-in">
-            <LoginModal onLoginSuccess={handleLoginSuccess} />
-          </div>
-        ) : (
-          <>
+        <>
             {/* Page 1 pins in place; page 2 slides up over it */}
             <Hero onNavigateToVarieties={() => handleNavigation("varieties")} />
             <PopOutSection />
@@ -235,14 +178,12 @@ function App() {
                   above={<ThunderstormChamber />}
                   below={<VarietiesShowcase onAddToCart={handleAddToCart} />}
                 />
-                <AboutUs />
               </div>
               {/* The room `sticky` needs below it to hold for — exactly the zoom.
                   At full offset the block above lands on it, so it never shows. */}
               <div aria-hidden="true" style={{ height: `${POPOUT_ZOOM_VH}vh` }} />
             </div>
-          </>
-        )}
+        </>
       </main>
 
       <CartDrawer
@@ -252,7 +193,6 @@ function App() {
         onUpdateQuantity={handleUpdateCartQuantity}
         onRemoveItem={handleRemoveCartItem}
         onClearCart={handleClearCart}
-        isLoggedIn={isLoggedIn}
       />
 
       <footer className="relative z-20 border-t border-zinc-900 bg-black py-8 px-6 text-center text-zinc-500 font-mono text-[10px] uppercase tracking-widest">

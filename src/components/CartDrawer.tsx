@@ -10,7 +10,6 @@ interface CartDrawerProps {
   onUpdateQuantity: (id: string, newQty: number) => void;
   onRemoveItem: (id: string) => void;
   onClearCart: () => void;
-  isLoggedIn: boolean;
 }
 
 export default function CartDrawer({
@@ -19,15 +18,14 @@ export default function CartDrawer({
   cartItems,
   onUpdateQuantity,
   onRemoveItem,
-  onClearCart,
-  isLoggedIn
+  onClearCart
 }: CartDrawerProps) {
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'details' | 'success'>('cart');
   const [formData, setFormData] = useState({
-    name: isLoggedIn ? 'BEAST CODER' : '',
+    name: '',
     email: '',
     address: 'MONSTER ARENA SECTOR 9',
     cardNumber: '4111 •••• •••• 9981'

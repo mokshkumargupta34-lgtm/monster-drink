@@ -36,4 +36,4 @@ export interface Review {
   date: string;
 }
 
-export type NavSection = 'home' | 'varieties' | 'about' | 'login' | 'cart';
+export type NavSection = 'home' | 'varieties' | 'cart';

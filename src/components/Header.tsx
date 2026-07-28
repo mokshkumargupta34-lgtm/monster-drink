@@ -1,16 +1,12 @@
 import React from 'react';
-import { ShoppingCart, LogIn, Menu, X, Flame } from 'lucide-react';
+import { ShoppingCart, Menu, X } from 'lucide-react';
 import { NavSection } from '../types';
 import imgFullLogo from '../assets/images/monster_lineup.png';
-import { ButtonColorful } from './ui/button-colorful';
 
 interface HeaderProps {
   currentSection: NavSection;
   onNavigate: (section: NavSection) => void;
   cartCount: number;
-  isLoggedIn: boolean;
-  username: string | null;
-  onLogout: () => void;
   onOpenCart: () => void;
 }
 
@@ -23,9 +19,6 @@ export default function Header({
   currentSection,
   onNavigate,
   cartCount,
-  isLoggedIn,
-  username,
-  onLogout,
   onOpenCart
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
@@ -113,8 +106,7 @@ export default function Header({
 
   const navItems = [
     { id: 'home' as NavSection, label: 'Home' },
-    { id: 'varieties' as NavSection, label: 'Varieties' },
-    { id: 'about' as NavSection, label: 'About Us' }
+    { id: 'varieties' as NavSection, label: 'Varieties' }
   ];
 
   const handleNavClick = (sectionId: NavSection) => {
@@ -172,33 +164,6 @@ export default function Header({
 
         {/* Action Controls */}
         <div className="hidden md:flex items-center gap-5">
-          {/* Login / Profile button */}
-          {isLoggedIn ? (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 bg-zinc-900/60 border border-emerald-500/30 rounded-full px-3.5 py-1.5">
-                <Flame className="w-4 h-4 text-emerald-400 animate-pulse" />
-                <span className="font-mono text-xs text-zinc-300 uppercase tracking-wider max-w-[100px] truncate">
-                  {username || 'BEAST'}
-                </span>
-              </div>
-              <button
-                onClick={onLogout}
-                className="font-mono text-xs tracking-wider text-zinc-500 hover:text-red-400 uppercase cursor-pointer transition-colors duration-200"
-              >
-                Logout
-              </button>
-            </div>
-          ) : (
-            <ButtonColorful
-              id="login-btn-header"
-              onClick={() => onNavigate('login')}
-              className="h-auto rounded-full px-4 py-2 font-mono text-xs tracking-wider uppercase"
-            >
-              <LogIn className="w-4 h-4" />
-              Login
-            </ButtonColorful>
-          )}
-
           {/* Cart Toggle */}
           <button
             id="cart-toggle-btn"
@@ -254,27 +219,6 @@ export default function Header({
                 {item.label}
               </button>
             ))}
-            
-            <button
-              onClick={() => handleNavClick('login')}
-              className={`font-mono text-left text-sm tracking-widest uppercase py-1 ${
-                currentSection === 'login' ? 'text-emerald-400 font-bold' : 'text-zinc-300'
-              }`}
-            >
-              {isLoggedIn ? `Profile (${username || 'Beast'})` : 'Login'}
-            </button>
-            
-            {isLoggedIn && (
-              <button
-                onClick={() => {
-                  onLogout();
-                  setMobileMenuOpen(false);
-                }}
-                className="font-mono text-left text-sm tracking-widest uppercase py-1 text-red-400"
-              >
-                Logout
-              </button>
-            )}
           </nav>
         </div>
       )}
