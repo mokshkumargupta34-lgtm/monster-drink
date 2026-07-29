@@ -1,7 +1,7 @@
 import React from 'react';
 import { ShoppingCart, Menu, X } from 'lucide-react';
 import { NavSection } from '../types';
-import imgFullLogo from '../assets/images/monster_lineup.png';
+import imgFullLogo from '../assets/images/monster_lineup.webp';
 
 interface HeaderProps {
   currentSection: NavSection;

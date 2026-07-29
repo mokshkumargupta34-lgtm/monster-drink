@@ -1,12 +1,12 @@
 import { DrinkVariety, Review } from '../types';
 
 // Let's import or write the relative paths of our generated images so they bundle correctly
-import imgClassic from '../assets/images/monster_classic_can_1784478557802.jpg';
-import imgZeroUltra from '../assets/images/monster_zero_ultra_1784478577779.jpg';
-import imgMangoLoco from '../assets/images/monster_mango_loco_1784478589181.jpg';
-import imgDevil from '../assets/images/monster_devil_can_1784478601991.jpg';
-import imgBadApple from '../assets/images/monster_bad_apple_1784478619847.jpg';
-import imgPacificPunch from '../assets/images/monster_pacific_punch_1784478631598.jpg';
+import imgClassic from '../assets/images/monster_classic_can_1784478557802.webp';
+import imgZeroUltra from '../assets/images/monster_zero_ultra_1784478577779.webp';
+import imgMangoLoco from '../assets/images/monster_mango_loco_1784478589181.webp';
+import imgDevil from '../assets/images/monster_devil_can_1784478601991.webp';
+import imgBadApple from '../assets/images/monster_bad_apple_1784478619847.webp';
+import imgPacificPunch from '../assets/images/monster_pacific_punch_1784478631598.webp';
 
 export interface ExtendedDrinkVariety extends DrinkVariety {
   filterStyle?: string; // CSS Filter to apply for variations

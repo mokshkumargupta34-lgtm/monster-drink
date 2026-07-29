@@ -12,7 +12,7 @@ import LightningSplit, {
   LIGHTNING_SPLIT_PIN_VH,
 } from "./components/ui/lightning-split";
 import ScrollExpandMedia from "./components/ui/scroll-expansion-hero";
-import imgBeastBg from "./assets/images/monster_dense_lightning_bg_1784486497734.jpg";
+import imgBeastBg from "./assets/images/monster_dense_lightning_bg_1784486497734.webp";
 import videoPromo from "./assets/video/monster_promo.mp4";
 import CartDrawer from "./components/CartDrawer";
 import { CartItem, NavSection } from "./types";

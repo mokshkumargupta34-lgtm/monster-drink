@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Zap } from 'lucide-react';
-import imgLightningBg from '../assets/images/monster_dense_lightning_bg_1784486497734.jpg';
-import imgThunderClouds from '../assets/images/monster_thunder_clouds_overlay_1784480536852.jpg';
+import imgLightningBg from '../assets/images/monster_dense_lightning_bg_1784486497734.webp';
+import imgThunderClouds from '../assets/images/monster_thunder_clouds_overlay_1784480536852.webp';
 
 export default function AmbientBackground() {
   const [lightningActive, setLightningActive] = useState(false);

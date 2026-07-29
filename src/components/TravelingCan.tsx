@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Zap, ShieldCheck } from 'lucide-react';
-import imgClassicCan from '../assets/images/monster_hero_can.png';
+import imgClassicCan from '../assets/images/monster_hero_can.webp';
 
 /**
  * The hero can that travels from page 1 into page 2's collage.

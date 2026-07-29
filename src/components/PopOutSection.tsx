@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import imgJungle from '../assets/images/monster_jungle_bg.png';
-import imgMango from '../assets/images/monster_mango_loco_pop.png';
-import imgBadApple from '../assets/images/monster_bad_apple_pop.png';
+import imgJungle from '../assets/images/monster_jungle_bg.webp';
+import imgMango from '../assets/images/monster_mango_loco_pop.webp';
+import imgBadApple from '../assets/images/monster_bad_apple_pop.webp';
 import TravelingCan from './TravelingCan';
 
 /**
