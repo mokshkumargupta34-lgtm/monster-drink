@@ -6,26 +6,30 @@ on:
   # So a deploy can be re-run from the Actions tab without a new commit.
   workflow_dispatch:
 
+# Publishing by pushing the build to the gh-pages branch, rather than through
+# actions/deploy-pages. The Pages-as-Actions route needs Pages already switched
+# on for the repo, and GITHUB_TOKEN cannot switch it on: POST /repos/../pages
+# answers "Resource not accessible by integration" because enabling Pages needs
+# repo admin. Creating the gh-pages branch enables Pages by itself, so this path
+# needs no manual setup and no personal access token.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# Let a newer push cancel an in-flight deploy, but never interrupt one that is
-# already publishing — a half-uploaded site would be live.
+# Let a newer push cancel one that is still building, but never interrupt a push
+# to gh-pages — a half-uploaded site would be live.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       # `npm ci` needs the lockfile to match package.json exactly; fall back to
@@ -36,32 +40,29 @@ jobs:
       - name: Type-check
         run: npx tsc --noEmit
 
-      # enablement turns Pages on for the repo the first time this runs, so no
-      # manual visit to Settings is needed. It also supplies the base path.
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
       - name: Build
         run: npm run build
 
       # The app mounts BrowserRouter, so any deep link that is not the root would
-      # otherwise 404 on Pages. Serving index.html as the 404 body hands those
-      # URLs to the client router instead.
-      - name: SPA fallback
-        run: cp dist/index.html dist/404.html
+      # otherwise 404. Serving index.html as the 404 body hands those URLs to the
+      # client router instead. .nojekyll stops Pages running the output through
+      # Jekyll, which would drop any file or directory beginning with _.
+      - name: SPA fallback and Jekyll opt-out
+        run: |
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      # A fresh single commit each time: this branch is build output, so there is
+      # nothing worth keeping in its history, and force-pushing one commit keeps
+      # the repo from growing by ~58MB per deploy.
+      - name: Publish to gh-pages
+        run: |
+          cd dist
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -71,6 +71,12 @@ const TYPE_SPAN = ZOOM_START * 0.44;
 const CANS_START = ZOOM_START * 0.54;
 const CANS_SPAN = ZOOM_START * 0.42;
 
+/**
+ * Frames the green can's exit distance gets to become measurable before the
+ * attempt is abandoned. Capped so a can that never docks cannot spin forever.
+ */
+const GREEN_MEASURE_MAX_TRIES = 240;
+
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const smoothstep = (v: number) => v * v * (3 - 2 * v);
 
@@ -98,6 +104,10 @@ export default function PopOutSection() {
 
   useEffect(() => {
     let raf = 0;
+    // Frames the docked can gets to become measurable. The can only settles into
+    // its docked box a render after the dock flips, and its PNG is multi-megabyte,
+    // so a first attempt can legitimately come up empty.
+    let greenTries = 0;
 
     // Read each resting box with the scroll transforms momentarily cleared, and
     // express it against the stage rather than the viewport so the numbers hold
@@ -175,6 +185,7 @@ export default function PopOutSection() {
       raf = 0;
       const section = sectionRef.current;
       if (!section) return;
+      let retryMeasure = false;
 
       // ---------------------------------------------------------------------
       // READS. Every layout read below happens before any style write: mixing
@@ -233,7 +244,17 @@ export default function PopOutSection() {
       // page 1 when measure() runs, and only settles into its docked box later.
       const canWrap = canFlightRef.current;
       if (canWrap) {
-        if (!greenExit.current) measureGreenExit();
+        if (!greenExit.current && greenTries < GREEN_MEASURE_MAX_TRIES) {
+          measureGreenExit();
+          // Keep asking for frames until it takes. Nothing else will wake us if
+          // the scroll has already stopped — and a jump straight into this range
+          // lands on the one frame where the can is not yet measurable, which
+          // left it stranded in frame with no transform at all.
+          if (!greenExit.current) {
+            greenTries++;
+            retryMeasure = true;
+          }
+        }
         if (greenExit.current) {
           canWrap.style.transform = `translateY(${-c * greenExit.current}px)`;
           canWrap.style.willChange = c > 0 && c < 1 ? 'transform' : '';
@@ -279,6 +300,7 @@ export default function PopOutSection() {
         }
       }
 
+      if (retryMeasure && !raf) raf = requestAnimationFrame(update);
     };
 
     const onScroll = () => {
@@ -287,6 +309,7 @@ export default function PopOutSection() {
     const onResize = () => {
       measure();
       greenExit.current = 0; // re-measure the docked box at the new size
+      greenTries = 0;
       onScroll();
     };
 
