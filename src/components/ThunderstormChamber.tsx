@@ -6,6 +6,8 @@ import ElectricMist from './ui/electric-mist';
 import canClassic from '../assets/images/monster_can_classic.webp';
 import canMangoLoco from '../assets/images/monster_can_mango_loco.webp';
 import canBadApple from '../assets/images/monster_can_bad_apple.webp';
+import canZeroUltra from '../assets/images/monster_can_zero_ultra.webp';
+import canPacificPunch from '../assets/images/monster_can_pacific_punch.webp';
 import wmClassic from '../assets/images/monster_wordmark_classic.webp';
 import wmZeroUltra from '../assets/images/monster_wordmark_zero_ultra.webp';
 import wmMangoLoco from '../assets/images/monster_wordmark_mango_loco.webp';
@@ -49,13 +51,14 @@ const WORDMARK_ASPECT = '2048 / 705';
 /**
  * The can shown in the chamber, per flavour. Every one is composited into the
  * hero can's original framing — same canvas aspect, same can height, same
- * centre — so the stack registers and page 2's flight needs no re-tuning.
- * Flavours with no artwork yet fall back to the classic can.
+ * centre — so the five register exactly and cross-fade without shifting.
  */
 const CAN_ART: Record<string, string> = {
   classic: canClassic,
+  'zero-ultra': canZeroUltra,
   'mango-loco': canMangoLoco,
   'bad-apple': canBadApple,
+  'pacific-punch': canPacificPunch,
 };
 
 /** The shared can frame's aspect — the hero can's, 3280x4096. */
