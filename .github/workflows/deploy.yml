@@ -1,0 +1,67 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # So a deploy can be re-run from the Actions tab without a new commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a newer push cancel an in-flight deploy, but never interrupt one that is
+# already publishing — a half-uploaded site would be live.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` needs the lockfile to match package.json exactly; fall back to
+      # `npm install` rather than failing the deploy over a stale lockfile.
+      - name: Install
+        run: npm ci || npm install
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      # enablement turns Pages on for the repo the first time this runs, so no
+      # manual visit to Settings is needed. It also supplies the base path.
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Build
+        run: npm run build
+
+      # The app mounts BrowserRouter, so any deep link that is not the root would
+      # otherwise 404 on Pages. Serving index.html as the 404 body hands those
+      # URLs to the client router instead.
+      - name: SPA fallback
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

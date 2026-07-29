@@ -3,8 +3,14 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
-export default defineConfig(() => {
+export default defineConfig(({command}) => {
   return {
+    // GitHub Pages serves a project site from /<repo>/, so built asset URLs have
+    // to carry that prefix. Only for `build` — applying it in dev would move the
+    // dev server off localhost:5173/ for no reason. Override with
+    // VITE_BASE=/ when deploying somewhere that serves from the domain root.
+    base:
+      command === 'build' ? (process.env.VITE_BASE ?? '/monster-drink/') : '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
